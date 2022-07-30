@@ -1,10 +1,40 @@
 [package]
-name = "dx11_screencap"
+name = "dxfilter"
 version = "0.1.0"
 edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Process textures DirectX shaders. Includes Scale, Color conversion filters."
+repository = "https://github.com/rhinostream/dxfilter-rs.git"
+authors = [
+    "Krishna Chaitanya <kittuov@gmail.com>",
+]
+categories = ["rendering::graphics-api", "os::windows-apis", "hardware-support"]
+keywords = ["desktop", "dxgi", "directx"]
+homepage = "https://github.com/rhinostream/dxfilter-rs"
+documentation = "https://docs.rs/dxfilter"
+include = [
+    "shader_macro/src/*",
+    "shader_macro/Cargo.toml",
+    "src/*",
+    "Cargo.toml",
+    "README.md",
+    "LISENCE.md"
+]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
+name = "dxfilter"
+path = "src/lib.rs"    # The source file of the target.
+test = true            # Is tested by default.
+doc = true             # Is documented by default.
+edition = "2021"       # The edition of the target.
+crate-type = ["lib"]   # The crate types to generate.
+
+
+[package.metadata.docs.rs]
+default-target = "x86_64-pc-windows-msvc"
+targets = ["aarch64-pc-windows-msvc", "i686-pc-windows-msvc", "x86_64-pc-windows-msvc"]
 
 
 [dependencies]

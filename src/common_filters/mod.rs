@@ -160,7 +160,7 @@ use win_desktop_duplication::texture::{ColorFormat, Texture};
 use windows::Win32::Graphics::Direct3D11::{D3D11_COMPARISON_NEVER, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_FLOAT32_MAX, D3D11_RENDER_TARGET_VIEW_DESC, D3D11_RTV_DIMENSION_TEXTURE2D, D3D11_SAMPLER_DESC, D3D11_SHADER_RESOURCE_VIEW_DESC, D3D11_TEX2D_RTV, D3D11_TEX2D_SRV, D3D11_TEXTURE_ADDRESS_CLAMP, D3D11_VIEWPORT, ID3D11Device4, ID3D11DeviceContext4, ID3D11RenderTargetView, ID3D11SamplerState, ID3D11ShaderResourceView};
 use windows::Win32::Graphics::Direct3D::{D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP, D3D_SRV_DIMENSION_TEXTURE2D};
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT, DXGI_FORMAT_R8_UNORM, DXGI_FORMAT_R8G8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM};
-use crate::error::DxCapError;
+use crate::error::DxFilterErr;
 use crate::shader::{PixelShader, VertexShader};
 use crate::{DxFilter, Result};
 
@@ -207,6 +207,8 @@ pub struct ConvertARGBToAYUV {
     sampler: ID3D11SamplerState,
 }
 
+/// Filter for converting [ARGBUNorm][ColorFormat::ARGBUNorm] or [ABGRUNorm][ColorFormat::ABGRUNorm]
+/// into [AYUV][ColorFormat::AYUV] format. filter also scales automatically based on input and output textures.
 impl ConvertARGBToAYUV {
     pub fn new(input_tex: &Texture, out_tex: &Texture, device: &ID3D11Device4) -> Result<Self> {
         Self::validate_input(input_tex)?;
@@ -239,7 +241,7 @@ impl ConvertARGBToAYUV {
                 Ok(())
             }
             _ => {
-                Err(DxCapError::BadParam(format!("expected ARGB or ABGR format found {:?}", desc.format).to_owned()))
+                Err(DxFilterErr::BadParam(format!("expected ARGB or ABGR format found {:?}", desc.format).to_owned()))
             }
         }
     }
@@ -250,7 +252,7 @@ impl ConvertARGBToAYUV {
                 Ok(())
             }
             _ => {
-                Err(DxCapError::BadParam(format!("expected AYUV format found {:?}", desc.format).to_owned()))
+                Err(DxFilterErr::BadParam(format!("expected AYUV format found {:?}", desc.format).to_owned()))
             }
         }
     }
@@ -269,8 +271,8 @@ impl DxFilter for ConvertARGBToAYUV {
         };
         unsafe {
             ctx.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-            ctx.VSSetShader(self.vs.get_raw(), &[]);
-            ctx.PSSetShader(self.ps.get_raw(), &[]);
+            ctx.VSSetShader(self.vs.as_raw_ref(), &[]);
+            ctx.PSSetShader(self.ps.as_raw_ref(), &[]);
             ctx.PSSetSamplers(0, &[Some(self.sampler.clone())]);
             ctx.PSSetShaderResources(0, &[Some(self.srv.clone())]);
             ctx.RSSetViewports(&[vp]);
@@ -346,7 +348,7 @@ impl ConvertARGBToNV12 {
                 Ok(())
             }
             _ => {
-                Err(DxCapError::BadParam(format!("expected ARGB or ABGR format found {:?}", desc.format).to_owned()))
+                Err(DxFilterErr::BadParam(format!("expected ARGB or ABGR format found {:?}", desc.format).to_owned()))
             }
         }
     }
@@ -357,7 +359,7 @@ impl ConvertARGBToNV12 {
                 Ok(())
             }
             _ => {
-                Err(DxCapError::BadParam(format!("expected NV12 format found {:?}", desc.format).to_owned()))
+                Err(DxFilterErr::BadParam(format!("expected NV12 format found {:?}", desc.format).to_owned()))
             }
         }
     }
@@ -385,14 +387,14 @@ impl DxFilter for ConvertARGBToNV12 {
 
         unsafe {
             ctx.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-            ctx.VSSetShader(self.vs.get_raw(), &[]);
-            ctx.PSSetShader(self.y_ps.get_raw(), &[]);
+            ctx.VSSetShader(self.vs.as_raw_ref(), &[]);
+            ctx.PSSetShader(self.y_ps.as_raw_ref(), &[]);
             ctx.PSSetSamplers(0, &[Some(self.sampler.clone())]);
             ctx.PSSetShaderResources(0, &[Some(self.srv.clone())]);
             ctx.RSSetViewports(&[vp_y]);
             ctx.OMSetRenderTargets(&[Some(self.rtv_y.clone())], None);
             ctx.Draw(4, 0);
-            ctx.PSSetShader(self.uv_ps.get_raw(), &[]);
+            ctx.PSSetShader(self.uv_ps.as_raw_ref(), &[]);
             ctx.RSSetViewports(&[vp_uv]);
             ctx.OMSetRenderTargets(&[Some(self.rtv_uv.clone())], None);
             ctx.Draw(4, 0);
@@ -429,7 +431,7 @@ fn create_srv(dev: &ID3D11Device4, tex: &Texture, format: DXGI_FORMAT) -> Result
     let srv = unsafe { dev.CreateShaderResourceView(tex.as_raw_ref(), &srv_desc) };
 
     if let Err(e) = srv {
-        Err(DxCapError::Unknown(format!("failed to create render target view. {:?}", e)))
+        Err(DxFilterErr::Unknown(format!("failed to create render target view. {:?}", e)))
     } else {
         Ok(srv.unwrap())
     }
@@ -447,7 +449,7 @@ fn create_rtv(dev: &ID3D11Device4, tex: &Texture, format: DXGI_FORMAT) -> Result
     let rtv = unsafe { dev.CreateRenderTargetView(tex.as_raw_ref(), &rtv_desc) };
 
     if let Err(e) = rtv {
-        Err(DxCapError::Unknown(format!("failed to create shader resource view. {:?}", e)))
+        Err(DxFilterErr::Unknown(format!("failed to create shader resource view. {:?}", e)))
     } else {
         Ok(rtv.unwrap())
     }
@@ -469,7 +471,7 @@ fn create_tex_sampler(dev: &ID3D11Device4) -> Result<ID3D11SamplerState> {
     let sampler = unsafe { dev.CreateSamplerState(&sampler_desc) };
 
     if let Err(e) = sampler {
-        Err(DxCapError::Unknown(format!("failed to create shader resource view. {:?}", e)))
+        Err(DxFilterErr::Unknown(format!("failed to create shader resource view. {:?}", e)))
     } else {
         Ok(sampler.unwrap())
     }
@@ -520,7 +522,7 @@ impl ScaleARGBOrAYUV {
                 Ok(())
             }
             _ => {
-                Err(DxCapError::BadParam(format!("expected ARGB or ABGR format found {:?}", desc.format).to_owned()))
+                Err(DxFilterErr::BadParam(format!("expected ARGB or ABGR format found {:?}", desc.format).to_owned()))
             }
         }
     }
@@ -531,7 +533,7 @@ impl ScaleARGBOrAYUV {
                 Ok(())
             }
             _ => {
-                Err(DxCapError::BadParam(format!("expected AYUV format found {:?}", desc.format).to_owned()))
+                Err(DxFilterErr::BadParam(format!("expected AYUV format found {:?}", desc.format).to_owned()))
             }
         }
     }
@@ -550,8 +552,8 @@ impl DxFilter for ScaleARGBOrAYUV {
         };
         unsafe {
             ctx.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-            ctx.VSSetShader(self.vs.get_raw(), &[]);
-            ctx.PSSetShader(self.ps.get_raw(), &[]);
+            ctx.VSSetShader(self.vs.as_raw_ref(), &[]);
+            ctx.PSSetShader(self.ps.as_raw_ref(), &[]);
             ctx.PSSetSamplers(0, &[Some(self.sampler.clone())]);
             ctx.PSSetShaderResources(0, &[Some(self.srv.clone())]);
             ctx.RSSetViewports(&[vp]);
