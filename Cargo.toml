@@ -9,7 +9,7 @@ authors = [
     "Krishna Chaitanya <kittuov@gmail.com>",
 ]
 categories = ["rendering::graphics-api", "os::windows-apis", "hardware-support", "graphics", "multimedia"]
-keywords = ["directx", "shader", "filter", "scale", "color", "convert"]
+keywords = ["directx", "shader", "filter", "scale", "color"]
 homepage = "https://github.com/rhinostream/dxfilter-rs"
 documentation = "https://docs.rs/dxfilter"
 include = [
