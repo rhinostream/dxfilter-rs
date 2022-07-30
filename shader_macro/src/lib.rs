@@ -66,9 +66,8 @@ impl Parse for ShaderMacroInput {
                 }
                 "src_file" => {
                     let file_name = input.parse::<LitStr>()?.value();
-                    let abs_path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR")));
-                    let abs_path = abs_path.join("..\\");
-                    let abs_path = abs_path.join(file_name);
+                    let abs_path = PathBuf::from(file_name);
+
                     src_data = Some(read_to_string(&abs_path).unwrap());
                     src_name = Some(CString::new(abs_path.parent().unwrap().to_str().unwrap()).unwrap());
                 }

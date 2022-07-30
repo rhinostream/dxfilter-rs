@@ -2,10 +2,22 @@
 name = "shader_macro"
 version = "0.1.0"
 edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "use this macro from dxfilter crate"
+repository = "https://github.com/rhinostream/dxfilter-rs.git"
+authors = [
+    "Krishna Chaitanya <kittuov@gmail.com>",
+]
+homepage = "https://github.com/rhinostream/dxfilter-rs"
+documentation = "https://docs.rs/dxfilter"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 proc-macro = true
+
+[package.metadata.docs.rs]
+default-target = "x86_64-pc-windows-msvc"
+targets = ["aarch64-pc-windows-msvc", "i686-pc-windows-msvc", "x86_64-pc-windows-msvc"]
 
 [dependencies]
 syn = { version = "1.0.98", features = ["full", "parsing", "printing"] }
