@@ -1,0 +1,20 @@
+[package]
+name = "shader_macro"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1.0.98", features = ["full", "parsing", "printing"] }
+quote = "1.0.20"
+proc-macro2 = "1.0.40"
+
+[dependencies.windows]
+version = "0.39.0"
+features = [
+    "Win32_Graphics_Direct3D_Fxc",
+    "Win32_Graphics_Hlsl",
+]

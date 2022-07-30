@@ -1,0 +1,1 @@
+pub use win_desktop_duplication::texture::ColorFormat;

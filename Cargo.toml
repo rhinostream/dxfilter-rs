@@ -1,0 +1,20 @@
+[package]
+name = "dx11_screencap"
+version = "0.1.0"
+edition = "2021"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+
+
+[dependencies]
+win_desktop_duplication = { git = "https://github.com/rhinostream/win_desktop_duplication" }
+syn = { version = "1.0.98", features = ["full", "fold"] }
+quote = "1.0.20"
+shader_macro = { path = "shader_macro" }
+
+[dependencies.windows]
+version = "0.39.0"
+features = [
+    "Win32_Graphics_Direct3D11",
+]
