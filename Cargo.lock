@@ -227,7 +227,7 @@ checksum = "15c61ba63f9235225a22310255a29b806b907c9b8c964bcbd0a2c70f3f2deea7"
 [[package]]
 name = "win_desktop_duplication"
 version = "0.10.3"
-source = "git+https://github.com/rhinostream/win_desktop_duplication#a62de9beb2d458696b7e6b688e51d88084d89f59"
+source = "git+https://github.com/rhinostream/win_desktop_duplication#2381e0bee53ad7cf4b947f41ea2a453ef2b7d023"
 dependencies = [
  "futures",
  "log",

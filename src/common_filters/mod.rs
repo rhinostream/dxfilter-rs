@@ -194,6 +194,8 @@ generate_shader!(argb_to_uv ps {
     target: "ps_5_0"
 });
 
+/// Filter for converting [ARGBUNorm][ColorFormat::ARGB8UNorm] or [ABGRUNorm][ColorFormat::ABGR8UNorm]
+/// into [AYUV][ColorFormat::AYUV] format. filter also scales automatically based on input and output textures.
 pub struct ConvertARGBToAYUV {
     device: ID3D11Device4,
     vs: VertexShader,
@@ -207,9 +209,9 @@ pub struct ConvertARGBToAYUV {
     sampler: ID3D11SamplerState,
 }
 
-/// Filter for converting [ARGBUNorm][ColorFormat::ARGBUNorm] or [ABGRUNorm][ColorFormat::ABGRUNorm]
-/// into [AYUV][ColorFormat::AYUV] format. filter also scales automatically based on input and output textures.
 impl ConvertARGBToAYUV {
+    /// create new instance of ConvertARGBToAYUV filter. After creation, filter takes RGB input from
+    /// `input_tex` and writes to AYUV `out_tex`.
     pub fn new(input_tex: &Texture, out_tex: &Texture, device: &ID3D11Device4) -> Result<Self> {
         Self::validate_input(input_tex)?;
         Self::validate_output(out_tex)?;
@@ -298,6 +300,8 @@ impl DxFilter for ConvertARGBToAYUV {
 }
 
 
+/// Filter for converting [ARGBUNorm][ColorFormat::ARGB8UNorm] or [ABGRUNorm][ColorFormat::ABGR8UNorm]
+/// into [NV12][ColorFormat::NV12] format. filter also scales automatically based on input and output textures.
 pub struct ConvertARGBToNV12 {
     device: ID3D11Device4,
     vs: VertexShader,
@@ -315,6 +319,8 @@ pub struct ConvertARGBToNV12 {
 }
 
 impl ConvertARGBToNV12 {
+    /// create new instance of ConvertARGBToANV12 filter. After creation, filter takes RGB input from
+    /// `input_tex` and writes to NV12 `out_tex`.
     pub fn new(input_tex: &Texture, out_tex: &Texture, device: &ID3D11Device4) -> Result<Self> {
         Self::validate_input(input_tex)?;
         Self::validate_output(out_tex)?;
@@ -418,65 +424,9 @@ impl DxFilter for ConvertARGBToNV12 {
     }
 }
 
-fn create_srv(dev: &ID3D11Device4, tex: &Texture, format: DXGI_FORMAT) -> Result<ID3D11ShaderResourceView> {
-    let mut srv_desc = D3D11_SHADER_RESOURCE_VIEW_DESC {
-        Format: format,
-        ViewDimension: D3D_SRV_DIMENSION_TEXTURE2D,
-        Anonymous: Default::default(),
-    };
-    srv_desc.Anonymous.Texture2D = D3D11_TEX2D_SRV {
-        MostDetailedMip: 0,
-        MipLevels: 1,
-    };
-    let srv = unsafe { dev.CreateShaderResourceView(tex.as_raw_ref(), &srv_desc) };
 
-    if let Err(e) = srv {
-        Err(DxFilterErr::Unknown(format!("failed to create render target view. {:?}", e)))
-    } else {
-        Ok(srv.unwrap())
-    }
-}
-
-fn create_rtv(dev: &ID3D11Device4, tex: &Texture, format: DXGI_FORMAT) -> Result<ID3D11RenderTargetView> {
-    let mut rtv_desc = D3D11_RENDER_TARGET_VIEW_DESC {
-        Format: format,
-        ViewDimension: D3D11_RTV_DIMENSION_TEXTURE2D,
-        Anonymous: Default::default(),
-    };
-    rtv_desc.Anonymous.Texture2D = D3D11_TEX2D_RTV {
-        MipSlice: 0,
-    };
-    let rtv = unsafe { dev.CreateRenderTargetView(tex.as_raw_ref(), &rtv_desc) };
-
-    if let Err(e) = rtv {
-        Err(DxFilterErr::Unknown(format!("failed to create shader resource view. {:?}", e)))
-    } else {
-        Ok(rtv.unwrap())
-    }
-}
-
-fn create_tex_sampler(dev: &ID3D11Device4) -> Result<ID3D11SamplerState> {
-    let sampler_desc = D3D11_SAMPLER_DESC {
-        Filter: D3D11_FILTER_MIN_MAG_MIP_LINEAR,
-        AddressU: D3D11_TEXTURE_ADDRESS_CLAMP,
-        AddressV: D3D11_TEXTURE_ADDRESS_CLAMP,
-        AddressW: D3D11_TEXTURE_ADDRESS_CLAMP,
-        MipLODBias: 0.0,
-        MaxAnisotropy: 0,
-        ComparisonFunc: D3D11_COMPARISON_NEVER,
-        BorderColor: [255f32; 4],
-        MinLOD: 0.0,
-        MaxLOD: D3D11_FLOAT32_MAX,
-    };
-    let sampler = unsafe { dev.CreateSamplerState(&sampler_desc) };
-
-    if let Err(e) = sampler {
-        Err(DxFilterErr::Unknown(format!("failed to create shader resource view. {:?}", e)))
-    } else {
-        Ok(sampler.unwrap())
-    }
-}
-
+/// Filter for simple scaling of [ARGBUNorm][ColorFormat::ARGB8UNorm] or [ABGRUNorm][ColorFormat::ABGR8UNorm] or [AYUV][ColorFormat::AYUV]
+/// formats.
 pub struct ScaleARGBOrAYUV {
     device: ID3D11Device4,
     vs: VertexShader,
@@ -491,6 +441,8 @@ pub struct ScaleARGBOrAYUV {
 }
 
 impl ScaleARGBOrAYUV {
+    /// create new instance of ScaleARGBOrAYUV filter. After creation, filter takes ARGB or ABGR or AYUV input from
+    /// `input_tex` and writes to same format `out_tex` after scaling.
     pub fn new(input_tex: &Texture, out_tex: &Texture, device: &ID3D11Device4) -> Result<Self> {
         Self::validate_input(input_tex)?;
         Self::validate_output(out_tex)?;
@@ -575,5 +527,64 @@ impl DxFilter for ScaleARGBOrAYUV {
         self._out_tex = tex.clone();
         self.rtv = create_rtv(&self.device, tex, tex.desc().format.into())?;
         return Ok(());
+    }
+}
+
+fn create_srv(dev: &ID3D11Device4, tex: &Texture, format: DXGI_FORMAT) -> Result<ID3D11ShaderResourceView> {
+    let mut srv_desc = D3D11_SHADER_RESOURCE_VIEW_DESC {
+        Format: format,
+        ViewDimension: D3D_SRV_DIMENSION_TEXTURE2D,
+        Anonymous: Default::default(),
+    };
+    srv_desc.Anonymous.Texture2D = D3D11_TEX2D_SRV {
+        MostDetailedMip: 0,
+        MipLevels: 1,
+    };
+    let srv = unsafe { dev.CreateShaderResourceView(tex.as_raw_ref(), &srv_desc) };
+
+    if let Err(e) = srv {
+        Err(DxFilterErr::Unknown(format!("failed to create render target view. {:?}", e)))
+    } else {
+        Ok(srv.unwrap())
+    }
+}
+
+fn create_rtv(dev: &ID3D11Device4, tex: &Texture, format: DXGI_FORMAT) -> Result<ID3D11RenderTargetView> {
+    let mut rtv_desc = D3D11_RENDER_TARGET_VIEW_DESC {
+        Format: format,
+        ViewDimension: D3D11_RTV_DIMENSION_TEXTURE2D,
+        Anonymous: Default::default(),
+    };
+    rtv_desc.Anonymous.Texture2D = D3D11_TEX2D_RTV {
+        MipSlice: 0,
+    };
+    let rtv = unsafe { dev.CreateRenderTargetView(tex.as_raw_ref(), &rtv_desc) };
+
+    if let Err(e) = rtv {
+        Err(DxFilterErr::Unknown(format!("failed to create render target view. {:?}", e)))
+    } else {
+        Ok(rtv.unwrap())
+    }
+}
+
+fn create_tex_sampler(dev: &ID3D11Device4) -> Result<ID3D11SamplerState> {
+    let sampler_desc = D3D11_SAMPLER_DESC {
+        Filter: D3D11_FILTER_MIN_MAG_MIP_LINEAR,
+        AddressU: D3D11_TEXTURE_ADDRESS_CLAMP,
+        AddressV: D3D11_TEXTURE_ADDRESS_CLAMP,
+        AddressW: D3D11_TEXTURE_ADDRESS_CLAMP,
+        MipLODBias: 0.0,
+        MaxAnisotropy: 0,
+        ComparisonFunc: D3D11_COMPARISON_NEVER,
+        BorderColor: [255f32; 4],
+        MinLOD: 0.0,
+        MaxLOD: D3D11_FLOAT32_MAX,
+    };
+    let sampler = unsafe { dev.CreateSamplerState(&sampler_desc) };
+
+    if let Err(e) = sampler {
+        Err(DxFilterErr::Unknown(format!("failed to create shader resource view. {:?}", e)))
+    } else {
+        Ok(sampler.unwrap())
     }
 }

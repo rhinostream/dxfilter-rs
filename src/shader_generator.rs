@@ -4,8 +4,8 @@
 /// ## Syntax:
 ///
 /// ```
-///  //                             ps for pixel shader       syntax for shader_compile! check
-///  // name of func to create      vs for vertex shader      shader_compile docs for this syntax
+///  //                             ps for pixel shader       syntax for compile_shader! check
+///  // name of func to create      vs for vertex shader      compile_shader docs for this syntax
 ///  //        |_________________        |      ____________________|
 ///  //                           \      |     /
 ///             generate_shader!(fn_name ps {...})
@@ -41,12 +41,12 @@
 macro_rules! generate_shader {
     ($name:ident ps $content: tt) => {
         fn $name (device: $crate::ID3D11Device4) -> $crate::Result<$crate::shader::PixelShader> {
-            $crate::shader::PixelShader::new(&$crate::shader_compile! $content, device)
+            $crate::shader::PixelShader::new(&$crate::compile_shader! $content, device)
         }
     };
     ($name:ident vs $content: tt) => {
         fn $name (device: $crate::ID3D11Device4) -> $crate::Result<$crate::shader::VertexShader> {
-            $crate::shader::VertexShader::new(&$crate::shader_compile! $content, device)
+            $crate::shader::VertexShader::new(&$crate::compile_shader! $content, device)
         }
     };
 }
