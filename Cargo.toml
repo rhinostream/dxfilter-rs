@@ -1,6 +1,6 @@
 [package]
 name = "dxfilter"
-version = "0.5.7"
+version = "0.5.8"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Process textures with DirectX shaders. Includes few Scale, Color conversion filters and utils to make your own."
