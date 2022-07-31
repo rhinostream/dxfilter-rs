@@ -1,4 +1,5 @@
 #![doc = include_str ! ("../README.md")]
+
 use win_desktop_duplication::texture::Texture;
 use windows::Win32::Graphics::Direct3D11::{ID3D11Device4, ID3D11DeviceContext4};
 
