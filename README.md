@@ -1,6 +1,6 @@
 # DxFilter
 
-[![docs.rs](https://img.shields.io/static/v1?label=docs&message=documentation&color=brightgreen)](https://rhinostream.github.io/dxfilter-rs)
+[![docs.rs](https://img.shields.io/docsrs/dxfilter)](https://docs.rs/dxfilter)
 [![Crates.io](https://img.shields.io/crates/v/dxfilter)](https://crates.io/crates/dxfilter)
 [![Crates.io](https://img.shields.io/crates/l/dxfilter)](https://crates.io/crates/dxfilter)
 

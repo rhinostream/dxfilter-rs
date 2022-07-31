@@ -1,6 +1,6 @@
 [package]
 name = "dxfilter"
-version = "0.5.8"
+version = "0.5.11"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Process textures with DirectX shaders. Includes few Scale, Color conversion filters and utils to make your own."
@@ -11,7 +11,7 @@ authors = [
 categories = ["rendering::graphics-api", "os::windows-apis", "hardware-support", "graphics", "multimedia"]
 keywords = ["directx", "shader", "filter", "scale", "color"]
 homepage = "https://github.com/rhinostream/dxfilter-rs"
-documentation = "https://rhinostream.github.io/dxfilter-rs"
+documentation = "https://docs.rs/dxfilter-rs"
 include = [
     "/shader_macro/src",
     "/shader_macro/Cargo.toml",
