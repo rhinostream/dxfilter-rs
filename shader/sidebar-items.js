@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["PixelShader","structure to hold `ID3D11PixelShader`. Create new instance using [`generate_shader!`]"],["VertexShader","structure to hold `ID3D11VertexShader`. Create new shader using [`generate_shader!`]"]]});

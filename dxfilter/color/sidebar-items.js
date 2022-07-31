@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ColorFormat","enumeration of color formats. this is mainly used to convert color formats from different libraries into a common format."]]});
