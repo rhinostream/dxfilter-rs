@@ -1,6 +1,6 @@
 [package]
 name = "dxfilter"
-version = "0.5.0"
+version = "0.5.7"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Process textures with DirectX shaders. Includes few Scale, Color conversion filters and utils to make your own."
@@ -13,13 +13,20 @@ keywords = ["directx", "shader", "filter", "scale", "color"]
 homepage = "https://github.com/rhinostream/dxfilter-rs"
 documentation = "https://docs.rs/dxfilter"
 include = [
-    "src/*",
+    "/shader_macro/src",
+    "/shader_macro/Cargo.toml",
+    "/shader_macro/Cargo.lock",
+    "/src",
     "Cargo.toml",
     "README.md",
-    "LISENCE.md"
+    "LICENCE.md"
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace]
+members = [
+    "shader_macro"
+]
 
 [lib]
 name = "dxfilter"
@@ -39,7 +46,7 @@ targets = ["aarch64-pc-windows-msvc", "i686-pc-windows-msvc", "x86_64-pc-windows
 win_desktop_duplication = "0.10.4"
 syn = { version = "1.0.98", features = ["full", "fold"] }
 quote = "1.0.20"
-shader_macro = { path = "./shader_macro", version = "0.2.0" }
+shader_macro = { version = "0.4.1" }
 
 [dependencies.windows]
 version = "0.39.0"

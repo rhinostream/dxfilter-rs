@@ -2,6 +2,8 @@
 use win_desktop_duplication::texture::Texture;
 use windows::Win32::Graphics::Direct3D11::{ID3D11Device4, ID3D11DeviceContext4};
 
+extern crate shader_macro;
+
 /// Compile directx shader at compile time and returns byte code. it uses [`D3DCompile2`](https://docs.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile2).
 /// any unexplained parameters are analogous to that function.
 ///
@@ -40,6 +42,7 @@ use windows::Win32::Graphics::Direct3D11::{ID3D11Device4, ID3D11DeviceContext4};
 /// };
 /// ```
 pub use shader_macro::shader as compile_shader;
+
 
 #[macro_use]
 #[doc(hidden)]

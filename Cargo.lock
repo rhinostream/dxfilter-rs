@@ -16,10 +16,10 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "dxfilter"
-version = "0.5.0"
+version = "0.5.7"
 dependencies = [
  "quote",
- "shader_macro",
+ "shader_macro 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn",
  "win_desktop_duplication",
  "windows",
@@ -167,7 +167,19 @@ dependencies = [
 
 [[package]]
 name = "shader_macro"
-version = "0.1.0"
+version = "0.4.1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+ "windows",
+]
+
+[[package]]
+name = "shader_macro"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e916abbaf855acac3f78a15b0e9c61a29de35c102fea9718a202d946a15351d"
 dependencies = [
  "proc-macro2",
  "quote",

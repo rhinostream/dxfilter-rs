@@ -1,6 +1,6 @@
 [package]
 name = "shader_macro"
-version = "0.2.0"
+version = "0.4.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "use this macro from dxfilter crate"
@@ -29,4 +29,6 @@ version = "0.39.0"
 features = [
     "Win32_Graphics_Direct3D_Fxc",
     "Win32_Graphics_Hlsl",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Memory",
 ]
