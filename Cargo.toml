@@ -46,7 +46,7 @@ targets = ["aarch64-pc-windows-msvc", "i686-pc-windows-msvc", "x86_64-pc-windows
 win_desktop_duplication = "0.10.7"
 syn = { version = "1.0.109", features = ["full", "fold"] }
 quote = "1.0.23"
-shader_macro = { version = "0.4.2", path = "shader_macro" }
+shader_macro = { version = "0.4.2" }
 
 [dependencies.windows]
 version = "0.44.0"
