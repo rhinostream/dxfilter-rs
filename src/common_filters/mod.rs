@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod test {
     use core::default::Default;
-    use std::ptr::null;
     use win_desktop_duplication::devices::AdapterFactory;
     use win_desktop_duplication::tex_reader::TextureReader;
     use win_desktop_duplication::texture::Texture;
@@ -27,7 +26,7 @@ mod test {
                 adapter.as_raw_ref(),
                 D3D_DRIVER_TYPE_UNKNOWN,
                 None, Default::default(),
-                &feature_levels, D3D11_SDK_VERSION, &mut device, &mut level, &mut ctx).unwrap()
+                Some(&feature_levels), D3D11_SDK_VERSION, Some(&mut device), Some(&mut level), Some(&mut ctx)).unwrap()
         };
 
         let ctx: ID3D11DeviceContext4 = ctx.unwrap().cast().unwrap();
@@ -55,21 +54,24 @@ mod test {
             SysMemSlicePitch: 0,
         };
 
-        let input_tex = Texture::new(unsafe { device.CreateTexture2D(&desc, &init_pic).unwrap() });
+        let mut input_tex = None;
+        unsafe { device.CreateTexture2D(&desc, Some(&init_pic), Some(&mut input_tex)).unwrap() }
+        let input_tex = Texture::new(input_tex.unwrap());
 
         desc.Format = DXGI_FORMAT_AYUV;
         desc.Width = 1280;
         desc.Height = 720;
         desc.BindFlags = D3D11_BIND_RENDER_TARGET;
 
-        let output_tex = Texture::new(unsafe { device.CreateTexture2D(&desc, null()).unwrap() });
+        let mut output_tex = None;
+        unsafe { device.CreateTexture2D(&desc, None, Some(&mut output_tex)).unwrap() };
+        let output_tex = Texture::new(output_tex.unwrap());
 
         let mut reader = TextureReader::new(device.clone(), ctx.clone());
 
         let mut filter = ConvertARGBToAYUV::new(&input_tex, &output_tex, &device).unwrap();
 
         let mut out = Vec::new();
-
 
         filter.apply_filter(&ctx).unwrap();
 
@@ -95,7 +97,8 @@ mod test {
                 adapter.as_raw_ref(),
                 D3D_DRIVER_TYPE_UNKNOWN,
                 None, Default::default(),
-                &feature_levels, D3D11_SDK_VERSION, &mut device, &mut level, &mut ctx).unwrap()
+                Some(&feature_levels), D3D11_SDK_VERSION, Some(&mut device), Some(&mut level),
+                Some(&mut ctx)).unwrap()
         };
 
         let ctx: ID3D11DeviceContext4 = ctx.unwrap().cast().unwrap();
@@ -123,14 +126,18 @@ mod test {
             SysMemSlicePitch: 0,
         };
 
-        let input_tex = Texture::new(unsafe { device.CreateTexture2D(&desc, &init_pic).unwrap() });
+        let mut input_tex = None;
+        unsafe { device.CreateTexture2D(&desc, Some(&init_pic), Some(&mut input_tex)).unwrap() }
+        let input_tex = Texture::new(input_tex.unwrap());
 
         desc.Format = DXGI_FORMAT_NV12;
         desc.Width = 1280;
         desc.Height = 720;
         desc.BindFlags = D3D11_BIND_RENDER_TARGET;
 
-        let output_tex = Texture::new(unsafe { device.CreateTexture2D(&desc, null()).unwrap() });
+        let mut output_tex = None;
+        unsafe { device.CreateTexture2D(&desc, None, Some(&mut output_tex)).unwrap() }
+        let output_tex = Texture::new(output_tex.unwrap());
 
         let mut reader = TextureReader::new(device.clone(), ctx.clone());
 
@@ -176,6 +183,11 @@ generate_shader!(simple_ps ps {
     target: "ps_5_0"
 });
 
+// generate_shader!(argb_to_yuv_pl ps {
+//     src_file: "src\\common_filters\\shaders\\argb_to_yuv_pl_ps.hlsl",
+//     entry_point: "main",
+//     target: "ps_5_0"
+// });
 generate_shader!(argb_to_ayuv ps {
     src_file: "src\\common_filters\\shaders\\argb_to_ayuv_ps.hlsl",
     entry_point: "main",
@@ -273,12 +285,12 @@ impl DxFilter for ConvertARGBToAYUV {
         };
         unsafe {
             ctx.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-            ctx.VSSetShader(self.vs.as_raw_ref(), &[]);
-            ctx.PSSetShader(self.ps.as_raw_ref(), &[]);
-            ctx.PSSetSamplers(0, &[Some(self.sampler.clone())]);
-            ctx.PSSetShaderResources(0, &[Some(self.srv.clone())]);
-            ctx.RSSetViewports(&[vp]);
-            ctx.OMSetRenderTargets(&[Some(self.rtv.clone())], None);
+            ctx.VSSetShader(self.vs.as_raw_ref(), Some(&[]));
+            ctx.PSSetShader(self.ps.as_raw_ref(), Some(&[]));
+            ctx.PSSetSamplers(0, Some(&[self.sampler.clone()]));
+            ctx.PSSetShaderResources(0, Some(&[self.srv.clone()]));
+            ctx.RSSetViewports(Some(&[vp]));
+            ctx.OMSetRenderTargets(Some(&[self.rtv.clone()]), None);
             ctx.Draw(4, 0);
         }
         return Ok(());
@@ -393,16 +405,16 @@ impl DxFilter for ConvertARGBToNV12 {
 
         unsafe {
             ctx.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-            ctx.VSSetShader(self.vs.as_raw_ref(), &[]);
-            ctx.PSSetShader(self.y_ps.as_raw_ref(), &[]);
-            ctx.PSSetSamplers(0, &[Some(self.sampler.clone())]);
-            ctx.PSSetShaderResources(0, &[Some(self.srv.clone())]);
-            ctx.RSSetViewports(&[vp_y]);
-            ctx.OMSetRenderTargets(&[Some(self.rtv_y.clone())], None);
+            ctx.VSSetShader(self.vs.as_raw_ref(), Some(&[]));
+            ctx.PSSetShader(self.y_ps.as_raw_ref(), Some(&[]));
+            ctx.PSSetSamplers(0, Some(&[self.sampler.clone()]));
+            ctx.PSSetShaderResources(0, Some(&[self.srv.clone()]));
+            ctx.RSSetViewports(Some(&[vp_y]));
+            ctx.OMSetRenderTargets(Some(&[self.rtv_y.clone()]), None);
             ctx.Draw(4, 0);
-            ctx.PSSetShader(self.uv_ps.as_raw_ref(), &[]);
-            ctx.RSSetViewports(&[vp_uv]);
-            ctx.OMSetRenderTargets(&[Some(self.rtv_uv.clone())], None);
+            ctx.PSSetShader(self.uv_ps.as_raw_ref(), Some(&[]));
+            ctx.RSSetViewports(Some(&[vp_uv]));
+            ctx.OMSetRenderTargets(Some(&[self.rtv_uv.clone()]), None);
             ctx.Draw(4, 0);
         }
         return Ok(());
@@ -504,12 +516,12 @@ impl DxFilter for ScaleARGBOrAYUV {
         };
         unsafe {
             ctx.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-            ctx.VSSetShader(self.vs.as_raw_ref(), &[]);
-            ctx.PSSetShader(self.ps.as_raw_ref(), &[]);
-            ctx.PSSetSamplers(0, &[Some(self.sampler.clone())]);
-            ctx.PSSetShaderResources(0, &[Some(self.srv.clone())]);
-            ctx.RSSetViewports(&[vp]);
-            ctx.OMSetRenderTargets(&[Some(self.rtv.clone())], None);
+            ctx.VSSetShader(self.vs.as_raw_ref(), Some(&[]));
+            ctx.PSSetShader(self.ps.as_raw_ref(), Some(&[]));
+            ctx.PSSetSamplers(0, Some(&[self.sampler.clone()]));
+            ctx.PSSetShaderResources(0, Some(&[self.srv.clone()]));
+            ctx.RSSetViewports(Some(&[vp]));
+            ctx.OMSetRenderTargets(Some(&[self.rtv.clone()]), None);
             ctx.Draw(4, 0);
         }
         return Ok(());
@@ -530,6 +542,111 @@ impl DxFilter for ScaleARGBOrAYUV {
     }
 }
 
+/// Filter for converting [ARGBUNorm][ColorFormat::ARGB8UNorm] or [ABGRUNorm][ColorFormat::ABGR8UNorm]
+/// into [YUV444][ColorFormat::YUV444] format. filter also scales automatically based on input and output textures.
+pub struct ConvertARGBToYUV444 {
+    device: ID3D11Device4,
+    vs: VertexShader,
+    ps: PixelShader,
+
+    _in_tex: Texture,
+    _out_tex: Texture,
+
+    srv: ID3D11ShaderResourceView,
+    rtv: ID3D11RenderTargetView,
+    sampler: ID3D11SamplerState,
+}
+
+impl ConvertARGBToYUV444 {
+    /// create new instance of ConvertARGBToYUV444 filter. After creation, filter takes ARGB or ABGR input from
+    /// `input_tex` and writes to YUV444 format `out_tex` after scaling.
+    pub fn new(input_tex: &Texture, out_tex: &Texture, device: &ID3D11Device4) -> Result<Self> {
+        Self::validate_input(input_tex)?;
+        Self::validate_output(out_tex)?;
+
+        let ps = simple_ps(device.clone())?;
+        let vs = simple_vs(device.clone())?;
+
+        let srv = create_srv(device, input_tex, DXGI_FORMAT_R8G8B8A8_UNORM)?;
+        let sampler = create_tex_sampler(device)?;
+        let rtv = create_rtv(device, out_tex, DXGI_FORMAT_R8_UNORM)?;
+
+        return Ok(Self {
+            device: device.clone(),
+            vs,
+            ps,
+            _in_tex: input_tex.clone(),
+            _out_tex: out_tex.clone(),
+            srv,
+            rtv,
+            sampler,
+        });
+    }
+
+
+    fn validate_input(tex: &Texture) -> Result<()> {
+        let desc = tex.desc();
+        match desc.format {
+            ColorFormat::ARGB8UNorm | ColorFormat::ABGR8UNorm => {
+                Ok(())
+            }
+            _ => {
+                Err(DxFilterErr::BadParam(format!("expected ARGB or ABGR format found {:?}", desc.format).to_owned()))
+            }
+        }
+    }
+    fn validate_output(tex: &Texture) -> Result<()> {
+        let desc = tex.desc();
+        match desc.format {
+            ColorFormat::YUV444 => {
+                Ok(())
+            }
+            _ => {
+                Err(DxFilterErr::BadParam(format!("expected AYUV format found {:?}", desc.format).to_owned()))
+            }
+        }
+    }
+}
+
+impl DxFilter for ConvertARGBToYUV444 {
+    fn apply_filter(&self, ctx: &ID3D11DeviceContext4) -> Result<()> {
+        let out_desc = self._out_tex.desc();
+        let vp = D3D11_VIEWPORT {
+            TopLeftX: 0.0,
+            TopLeftY: 0.0,
+            Width: out_desc.width as _,
+            Height: (out_desc.height * 3) as _,
+            MinDepth: 0.0,
+            MaxDepth: 0.0,
+        };
+        unsafe {
+            ctx.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+            ctx.VSSetShader(self.vs.as_raw_ref(), Some(&[]));
+            ctx.PSSetShader(self.ps.as_raw_ref(), Some(&[]));
+            ctx.PSSetSamplers(0, Some(&[self.sampler.clone()]));
+            ctx.PSSetShaderResources(0, Some(&[self.srv.clone()]));
+            ctx.RSSetViewports(Some(&[vp]));
+            ctx.OMSetRenderTargets(Some(&[self.rtv.clone()]), None);
+            ctx.Draw(4, 0);
+        }
+        return Ok(());
+    }
+
+    fn set_input_tex(&mut self, tex: &Texture) -> Result<()> {
+        ConvertARGBToYUV444::validate_input(tex)?;
+        self._in_tex = tex.clone();
+        self.srv = create_srv(&self.device, tex, tex.desc().format.into())?;
+        return Ok(());
+    }
+
+    fn set_output_tex(&mut self, tex: &Texture) -> Result<()> {
+        ConvertARGBToYUV444::validate_output(tex)?;
+        self._out_tex = tex.clone();
+        self.rtv = create_rtv(&self.device, tex, tex.desc().format.into())?;
+        return Ok(());
+    }
+}
+
 fn create_srv(dev: &ID3D11Device4, tex: &Texture, format: DXGI_FORMAT) -> Result<ID3D11ShaderResourceView> {
     let mut srv_desc = D3D11_SHADER_RESOURCE_VIEW_DESC {
         Format: format,
@@ -540,10 +657,9 @@ fn create_srv(dev: &ID3D11Device4, tex: &Texture, format: DXGI_FORMAT) -> Result
         MostDetailedMip: 0,
         MipLevels: 1,
     };
-    let srv = unsafe { dev.CreateShaderResourceView(tex.as_raw_ref(), &srv_desc) };
-
-    if let Err(e) = srv {
-        Err(DxFilterErr::Unknown(format!("failed to create render target view. {:?}", e)))
+    let mut srv = None;
+    if let Err(e) = unsafe { dev.CreateShaderResourceView(tex.as_raw_ref(), Some(&srv_desc), Some(&mut srv)) } {
+        Err(DxFilterErr::Unknown(format!("failed to create shader resource view. {:?}", e)))
     } else {
         Ok(srv.unwrap())
     }
@@ -558,9 +674,9 @@ fn create_rtv(dev: &ID3D11Device4, tex: &Texture, format: DXGI_FORMAT) -> Result
     rtv_desc.Anonymous.Texture2D = D3D11_TEX2D_RTV {
         MipSlice: 0,
     };
-    let rtv = unsafe { dev.CreateRenderTargetView(tex.as_raw_ref(), &rtv_desc) };
+    let mut rtv = None;
 
-    if let Err(e) = rtv {
+    if let Err(e) = unsafe { dev.CreateRenderTargetView(tex.as_raw_ref(), Some(&rtv_desc), Some(&mut rtv)) } {
         Err(DxFilterErr::Unknown(format!("failed to create render target view. {:?}", e)))
     } else {
         Ok(rtv.unwrap())
@@ -580,11 +696,12 @@ fn create_tex_sampler(dev: &ID3D11Device4) -> Result<ID3D11SamplerState> {
         MinLOD: 0.0,
         MaxLOD: D3D11_FLOAT32_MAX,
     };
-    let sampler = unsafe { dev.CreateSamplerState(&sampler_desc) };
+    let mut sampler_state = None;
+    let sampler = unsafe { dev.CreateSamplerState(&sampler_desc, Some(&mut sampler_state)) };
 
     if let Err(e) = sampler {
         Err(DxFilterErr::Unknown(format!("failed to create shader resource view. {:?}", e)))
     } else {
-        Ok(sampler.unwrap())
+        Ok(sampler_state.unwrap())
     }
 }

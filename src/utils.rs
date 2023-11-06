@@ -1,7 +1,6 @@
 //! various utilities for setup with directx. If you are using this in other applications, you
 //! should not need these methods. However, for simple applications, these will be helpful
 
-use std::ptr::null;
 use win_desktop_duplication::texture::{ColorFormat, Texture, TextureDesc};
 use windows::Win32::Graphics::Direct3D11::{D3D11_BIND_FLAG, D3D11_BIND_RENDER_TARGET, D3D11_BIND_SHADER_RESOURCE, D3D11_RESOURCE_MISC_FLAG, D3D11_SDK_VERSION, D3D11_SUBRESOURCE_DATA, D3D11_TEXTURE2D_DESC, D3D11_USAGE, D3D11_USAGE_DEFAULT, D3D11CreateDevice, ID3D11Device4, ID3D11DeviceContext4};
 use windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE_UNKNOWN, D3D_FEATURE_LEVEL_11_1};
@@ -38,7 +37,7 @@ pub fn create_device_context(adapter: &Adapter) -> Result<(ID3D11Device4, ID3D11
             adapter.as_raw_ref(),
             D3D_DRIVER_TYPE_UNKNOWN,
             None, Default::default(),
-            &feature_levels, D3D11_SDK_VERSION, &mut device, &mut level, &mut ctx)
+            Some(&feature_levels), D3D11_SDK_VERSION, Some(&mut device), Some(&mut level), Some(&mut ctx))
     };
 
     if let Err(e) = res {
@@ -86,21 +85,21 @@ fn create_texture(device: &ID3D11Device4, tex_desc: TextureDesc, usage: D3D11_US
             Err(DxFilterErr::BadParam("unexpected texture format".to_owned()))
         }
     }?;
-
-    let result = if initial_data.is_some() {
-        let init_img = D3D11_SUBRESOURCE_DATA {
-            pSysMem: initial_data.unwrap().as_ptr() as _,
-            SysMemPitch: pitch,
-            SysMemSlicePitch: 0,
-        };
-        unsafe { device.CreateTexture2D(&desc, &init_img) }
+    let mut srd =D3D11_SUBRESOURCE_DATA::default();
+    let init_img = if initial_data.is_some() {
+        srd.pSysMem = initial_data.unwrap().as_ptr() as _;
+        srd.SysMemPitch = pitch;
+        srd.SysMemSlicePitch = 0;
+        Some(&srd as _)
     } else {
-        unsafe { device.CreateTexture2D(&desc, null()) }
+        None
     };
+    let mut tex = None;
 
-    if let Err(e) = result {
+
+    if let Err(e) = unsafe { device.CreateTexture2D(&desc, init_img, Some(&mut tex)) } {
         Err(DxFilterErr::Unknown(format!("failed to create texture. {:?}", e)))
     } else {
-        Ok(Texture::new(result.unwrap()))
+        Ok(Texture::new(tex.unwrap()))
     }
 }

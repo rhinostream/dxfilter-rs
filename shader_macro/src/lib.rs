@@ -219,11 +219,11 @@ pub fn shader(_input: TokenStream) -> TokenStream {
     let result = unsafe {
         D3DCompile2(
             input.src_data.as_ptr() as _,
-            input.src_data.len(), input_name, defines.as_ptr()
+            input.src_data.len(), input_name, Some(defines.as_ptr())
             , core::mem::transmute::<_, &ID3DInclude>(&(D3D_COMPILE_STANDARD_FILE_INCLUDE as u64)), PCSTR(input.entry_point.as_ptr() as _),
             PCSTR(input.target.as_ptr() as _), input.flags1, input.flags2, input.secondary_data_flags,
-            secondary_data as _,
-            input.secondary_data.len(), &mut shader_bytes, &mut error_msgs)
+            Some(secondary_data as _),
+            input.secondary_data.len(), &mut shader_bytes, Some(&mut error_msgs))
     };
     if result.is_err() {
         if let Some(error_msgs) = error_msgs {

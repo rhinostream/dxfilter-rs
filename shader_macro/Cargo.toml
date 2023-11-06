@@ -1,6 +1,6 @@
 [package]
 name = "shader_macro"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "use this macro from dxfilter crate"
@@ -20,12 +20,12 @@ default-target = "x86_64-pc-windows-msvc"
 targets = ["aarch64-pc-windows-msvc", "i686-pc-windows-msvc", "x86_64-pc-windows-msvc"]
 
 [dependencies]
-syn = { version = "1.0.98", features = ["full", "parsing", "printing"] }
-quote = "1.0.20"
-proc-macro2 = "1.0.40"
+syn = { version = "1.0.109", features = ["full", "parsing", "printing"] }
+quote = "1.0.23"
+proc-macro2 = "1.0.51"
 
 [dependencies.windows]
-version = "0.39.0"
+version = "0.44.0"
 features = [
     "Win32_Graphics_Direct3D_Fxc",
     "Win32_Graphics_Hlsl",
