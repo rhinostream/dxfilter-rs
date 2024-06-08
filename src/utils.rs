@@ -62,9 +62,9 @@ fn create_texture(device: &ID3D11Device4, tex_desc: TextureDesc, usage: D3D11_US
             Quality: 0,
         },
         Usage: usage,
-        BindFlags: bind_flags,
+        BindFlags: bind_flags.0 as _,
         CPUAccessFlags: Default::default(),
-        MiscFlags: misc_flag,
+        MiscFlags: misc_flag.0 as _,
     };
 
     let pitch = tex_desc.width * match tex_desc.format {

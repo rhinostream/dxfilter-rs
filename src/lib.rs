@@ -4,7 +4,7 @@ use win_desktop_duplication::texture::Texture;
 use windows::Win32::Graphics::Direct3D11::{ID3D11Device4, ID3D11DeviceContext4};
 
 #[cfg(not(doc))]
-pub use shader_macro::shader as compile_shader;
+pub use shader_macro::compile_shader;
 
 
 #[macro_use]

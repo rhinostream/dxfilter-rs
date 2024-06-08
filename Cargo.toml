@@ -1,6 +1,6 @@
 [package]
 name = "dxfilter"
-version = "0.5.12"
+version = "0.5.13"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Process textures with DirectX shaders. Includes few Scale, Color conversion filters and utils to make your own."
@@ -46,7 +46,8 @@ targets = ["aarch64-pc-windows-msvc", "i686-pc-windows-msvc", "x86_64-pc-windows
 win_desktop_duplication = "0.10.8"
 syn = { version = "2.0.62", features = ["full", "fold"] }
 quote = "1.0.23"
-shader_macro = { version = "0.4.2" }
+shader_macro = { version = "0.5.0"}
+
 
 [dependencies.windows]
 version = "0.57.0"

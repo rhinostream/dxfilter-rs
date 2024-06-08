@@ -1,13 +1,26 @@
+use core::default::Default;
+
+use win_desktop_duplication::texture::{ColorFormat, Texture};
+use windows::Win32::Graphics::Direct3D::{D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP, D3D_SRV_DIMENSION_TEXTURE2D};
+use windows::Win32::Graphics::Direct3D11::{D3D11_COMPARISON_NEVER, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_FLOAT32_MAX, D3D11_RENDER_TARGET_VIEW_DESC, D3D11_RTV_DIMENSION_TEXTURE2D, D3D11_SAMPLER_DESC, D3D11_SHADER_RESOURCE_VIEW_DESC, D3D11_TEX2D_RTV, D3D11_TEX2D_SRV, D3D11_TEXTURE_ADDRESS_CLAMP, D3D11_VIEWPORT, ID3D11Device4, ID3D11DeviceContext4, ID3D11RenderTargetView, ID3D11SamplerState, ID3D11ShaderResourceView};
+use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT, DXGI_FORMAT_R8_UNORM, DXGI_FORMAT_R8G8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM};
+
+use crate::{DxFilter, Result};
+use crate::error::DxFilterErr;
+use crate::shader::{PixelShader, VertexShader};
+
 #[cfg(test)]
 mod test {
     use core::default::Default;
+
     use win_desktop_duplication::devices::AdapterFactory;
     use win_desktop_duplication::tex_reader::TextureReader;
     use win_desktop_duplication::texture::Texture;
     use windows::core::Interface;
-    use windows::Win32::Graphics::Direct3D11::{D3D11_BIND_RENDER_TARGET, D3D11_BIND_SHADER_RESOURCE, D3D11_SDK_VERSION, D3D11_SUBRESOURCE_DATA, D3D11_TEXTURE2D_DESC, D3D11_USAGE_DEFAULT, D3D11CreateDevice, ID3D11Device4, ID3D11DeviceContext4};
     use windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE_UNKNOWN, D3D_FEATURE_LEVEL_11_1};
+    use windows::Win32::Graphics::Direct3D11::{D3D11_BIND_RENDER_TARGET, D3D11_BIND_SHADER_RESOURCE, D3D11_SDK_VERSION, D3D11_SUBRESOURCE_DATA, D3D11_TEXTURE2D_DESC, D3D11_USAGE_DEFAULT, D3D11CreateDevice, ID3D11Device4, ID3D11DeviceContext4};
     use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_AYUV, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_NV12, DXGI_SAMPLE_DESC};
+
     use crate::common_filters::{ConvertARGBToAYUV, ConvertARGBToNV12};
     use crate::DxFilter;
 
@@ -43,7 +56,7 @@ mod test {
                 Quality: 0,
             },
             Usage: D3D11_USAGE_DEFAULT,
-            BindFlags: D3D11_BIND_SHADER_RESOURCE,
+            BindFlags: D3D11_BIND_SHADER_RESOURCE.0 as _,
             CPUAccessFlags: Default::default(),
             MiscFlags: Default::default(),
         };
@@ -61,7 +74,7 @@ mod test {
         desc.Format = DXGI_FORMAT_AYUV;
         desc.Width = 1280;
         desc.Height = 720;
-        desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+        desc.BindFlags = D3D11_BIND_RENDER_TARGET.0 as _;
 
         let mut output_tex = None;
         unsafe { device.CreateTexture2D(&desc, None, Some(&mut output_tex)).unwrap() };
@@ -115,7 +128,7 @@ mod test {
                 Quality: 0,
             },
             Usage: D3D11_USAGE_DEFAULT,
-            BindFlags: D3D11_BIND_SHADER_RESOURCE,
+            BindFlags: D3D11_BIND_SHADER_RESOURCE.0 as _,
             CPUAccessFlags: Default::default(),
             MiscFlags: Default::default(),
         };
@@ -133,7 +146,7 @@ mod test {
         desc.Format = DXGI_FORMAT_NV12;
         desc.Width = 1280;
         desc.Height = 720;
-        desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+        desc.BindFlags = D3D11_BIND_RENDER_TARGET.0 as _;
 
         let mut output_tex = None;
         unsafe { device.CreateTexture2D(&desc, None, Some(&mut output_tex)).unwrap() }
@@ -161,15 +174,6 @@ mod test {
     }
 }
 
-
-use core::default::Default;
-use win_desktop_duplication::texture::{ColorFormat, Texture};
-use windows::Win32::Graphics::Direct3D11::{D3D11_COMPARISON_NEVER, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_FLOAT32_MAX, D3D11_RENDER_TARGET_VIEW_DESC, D3D11_RTV_DIMENSION_TEXTURE2D, D3D11_SAMPLER_DESC, D3D11_SHADER_RESOURCE_VIEW_DESC, D3D11_TEX2D_RTV, D3D11_TEX2D_SRV, D3D11_TEXTURE_ADDRESS_CLAMP, D3D11_VIEWPORT, ID3D11Device4, ID3D11DeviceContext4, ID3D11RenderTargetView, ID3D11SamplerState, ID3D11ShaderResourceView};
-use windows::Win32::Graphics::Direct3D::{D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP, D3D_SRV_DIMENSION_TEXTURE2D};
-use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT, DXGI_FORMAT_R8_UNORM, DXGI_FORMAT_R8G8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM};
-use crate::error::DxFilterErr;
-use crate::shader::{PixelShader, VertexShader};
-use crate::{DxFilter, Result};
 
 generate_shader!(simple_vs vs {
     src_file: "src\\common_filters\\shaders\\simple_vs.hlsl",
@@ -287,10 +291,10 @@ impl DxFilter for ConvertARGBToAYUV {
             ctx.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
             ctx.VSSetShader(self.vs.as_raw_ref(), Some(&[]));
             ctx.PSSetShader(self.ps.as_raw_ref(), Some(&[]));
-            ctx.PSSetSamplers(0, Some(&[self.sampler.clone()]));
-            ctx.PSSetShaderResources(0, Some(&[self.srv.clone()]));
+            ctx.PSSetSamplers(0, Some(&[Some(self.sampler.clone())]));
+            ctx.PSSetShaderResources(0, Some(&[Some(self.srv.clone())]));
             ctx.RSSetViewports(Some(&[vp]));
-            ctx.OMSetRenderTargets(Some(&[self.rtv.clone()]), None);
+            ctx.OMSetRenderTargets(Some(&[Some(self.rtv.clone())]), None);
             ctx.Draw(4, 0);
         }
         return Ok(());
@@ -407,14 +411,14 @@ impl DxFilter for ConvertARGBToNV12 {
             ctx.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
             ctx.VSSetShader(self.vs.as_raw_ref(), Some(&[]));
             ctx.PSSetShader(self.y_ps.as_raw_ref(), Some(&[]));
-            ctx.PSSetSamplers(0, Some(&[self.sampler.clone()]));
-            ctx.PSSetShaderResources(0, Some(&[self.srv.clone()]));
+            ctx.PSSetSamplers(0, Some(&[Some(self.sampler.clone())]));
+            ctx.PSSetShaderResources(0, Some(&[Some(self.srv.clone())]));
             ctx.RSSetViewports(Some(&[vp_y]));
-            ctx.OMSetRenderTargets(Some(&[self.rtv_y.clone()]), None);
+            ctx.OMSetRenderTargets(Some(&[Some(self.rtv_y.clone())]), None);
             ctx.Draw(4, 0);
             ctx.PSSetShader(self.uv_ps.as_raw_ref(), Some(&[]));
             ctx.RSSetViewports(Some(&[vp_uv]));
-            ctx.OMSetRenderTargets(Some(&[self.rtv_uv.clone()]), None);
+            ctx.OMSetRenderTargets(Some(&[Some(self.rtv_uv.clone())]), None);
             ctx.Draw(4, 0);
         }
         return Ok(());
@@ -518,10 +522,10 @@ impl DxFilter for ScaleARGBOrAYUV {
             ctx.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
             ctx.VSSetShader(self.vs.as_raw_ref(), Some(&[]));
             ctx.PSSetShader(self.ps.as_raw_ref(), Some(&[]));
-            ctx.PSSetSamplers(0, Some(&[self.sampler.clone()]));
-            ctx.PSSetShaderResources(0, Some(&[self.srv.clone()]));
+            ctx.PSSetSamplers(0, Some(&[Some(self.sampler.clone())]));
+            ctx.PSSetShaderResources(0, Some(&[Some(self.srv.clone())]));
             ctx.RSSetViewports(Some(&[vp]));
-            ctx.OMSetRenderTargets(Some(&[self.rtv.clone()]), None);
+            ctx.OMSetRenderTargets(Some(&[Some(self.rtv.clone())]), None);
             ctx.Draw(4, 0);
         }
         return Ok(());
@@ -623,10 +627,10 @@ impl DxFilter for ConvertARGBToYUV444 {
             ctx.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
             ctx.VSSetShader(self.vs.as_raw_ref(), Some(&[]));
             ctx.PSSetShader(self.ps.as_raw_ref(), Some(&[]));
-            ctx.PSSetSamplers(0, Some(&[self.sampler.clone()]));
-            ctx.PSSetShaderResources(0, Some(&[self.srv.clone()]));
+            ctx.PSSetSamplers(0, Some(&[Some(self.sampler.clone())]));
+            ctx.PSSetShaderResources(0, Some(&[Some(self.srv.clone())]));
             ctx.RSSetViewports(Some(&[vp]));
-            ctx.OMSetRenderTargets(Some(&[self.rtv.clone()]), None);
+            ctx.OMSetRenderTargets(Some(&[Some(self.rtv.clone())]), None);
             ctx.Draw(4, 0);
         }
         return Ok(());
