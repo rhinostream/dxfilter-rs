@@ -1,16 +1,18 @@
-extern crate proc_macro;
 extern crate core;
+extern crate proc_macro;
 
-use proc_macro::{TokenStream};
-use std::ffi::{CString};
+use proc_macro::TokenStream;
+use std::ffi::CString;
 use std::fs::read_to_string;
 use std::path::PathBuf;
-use std::ptr::{null};
+use std::ptr::null;
 use std::slice::from_raw_parts;
+
 use quote::quote;
 use syn::{braced, bracketed, Ident, LitByteStr, LitInt, LitStr, parse_macro_input, Token};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
+use syn::token::Comma;
 use windows::core::PCSTR;
 use windows::Win32::Graphics::Direct3D::{D3D_SHADER_MACRO, ID3DBlob, ID3DInclude};
 use windows::Win32::Graphics::Direct3D::Fxc::D3DCompile2;
@@ -77,7 +79,7 @@ impl Parse for ShaderMacroInput {
                 "defines" => {
                     let content;
                     let _ = braced!( content in input);
-                    let macro_raw: Punctuated<ShaderMacro, Token![,]> = content.parse_terminated(ShaderMacro::parse)?;
+                    let macro_raw: Punctuated<ShaderMacro, Token![,]> = content.parse_terminated(ShaderMacro::parse, Comma)?;
                     for m in macro_raw {
                         macros.push(m)
                     }
