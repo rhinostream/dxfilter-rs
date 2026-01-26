@@ -43,7 +43,7 @@ targets = ["aarch64-pc-windows-msvc", "i686-pc-windows-msvc", "x86_64-pc-windows
 
 
 [dependencies]
-win_desktop_duplication = "0.10.8"
+win_desktop_duplication = { path = "K:\\Projects\\rhinostream-cdylib\\win_desktop_duplication", version = "0.10.11" }
 syn = { version = "2.0.62", features = ["full", "fold"] }
 quote = "1.0.23"
 shader_macro = { version = "0.5.0"}
