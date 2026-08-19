@@ -19,9 +19,9 @@ mod test {
     use windows::core::Interface;
     use windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE_UNKNOWN, D3D_FEATURE_LEVEL_11_1};
     use windows::Win32::Graphics::Direct3D11::{D3D11_BIND_RENDER_TARGET, D3D11_BIND_SHADER_RESOURCE, D3D11_SDK_VERSION, D3D11_SUBRESOURCE_DATA, D3D11_TEXTURE2D_DESC, D3D11_USAGE_DEFAULT, D3D11CreateDevice, ID3D11Device4, ID3D11DeviceContext4};
-    use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_AYUV, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_NV12, DXGI_SAMPLE_DESC};
+    use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_AYUV, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_NV12, DXGI_FORMAT_R10G10B10A2_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_SAMPLE_DESC};
 
-    use crate::common_filters::{ConvertARGBToAYUV, ConvertARGBToNV12};
+    use crate::common_filters::{ConvertARGBToAYUV, ConvertARGBToNV12, ConvertHighBitToARGB8};
     use crate::DxFilter;
 
     const SOURCE_IMG: [u8; 1920 * 1080 * 4] = [10; 1920 * 1080 * 4];
@@ -172,6 +172,155 @@ mod test {
         assert_eq!(out[0], TARGET_PIX[2]);
         assert_eq!(out[1280 * 720..(1280 * 720) + 2], TARGET_PIX[0..2]);
     }
+
+    fn build_device_and_ctx() -> (ID3D11Device4, ID3D11DeviceContext4) {
+        let adapter = AdapterFactory::new().get_adapter_by_idx(0).unwrap();
+        let feature_levels = [D3D_FEATURE_LEVEL_11_1];
+        let mut device = None;
+        let mut ctx = None;
+        let mut level = Default::default();
+        unsafe {
+            D3D11CreateDevice(
+                adapter.as_raw_ref(),
+                D3D_DRIVER_TYPE_UNKNOWN,
+                None, Default::default(),
+                Some(&feature_levels), D3D11_SDK_VERSION, Some(&mut device), Some(&mut level), Some(&mut ctx)).unwrap()
+        };
+        let ctx: ID3D11DeviceContext4 = ctx.unwrap().cast().unwrap();
+        let device: ID3D11Device4 = device.unwrap().cast().unwrap();
+        (device, ctx)
+    }
+
+    #[test]
+    fn test_r10_to_argb8() {
+        let (device, ctx) = build_device_and_ctx();
+
+        let width = 4u32;
+        let height = 4u32;
+
+        // R10G10B10A2_UNORM packing: bits 0-9 R, 10-19 G, 20-29 B, 30-31 A.
+        // Pixel r=1023, g=512, b=0, a=3 -> expect 8-bit (255, 128, 0, 255).
+        // (R: 1023/1023 = 1.0 -> 255; G: 512/1023 ~= 0.5 -> 128; B: 0; A forced opaque -> 255.)
+        let packed: u32 = (3u32 & 0x3) << 30
+            | (0u32 & 0x3FF) << 20
+            | (512u32 & 0x3FF) << 10
+            | (1023u32 & 0x3FF);
+        let src: Vec<u32> = vec![packed; (width * height) as usize];
+
+        let mut desc = D3D11_TEXTURE2D_DESC {
+            Width: width,
+            Height: height,
+            MipLevels: 1,
+            ArraySize: 1,
+            Format: DXGI_FORMAT_R10G10B10A2_UNORM,
+            SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
+            Usage: D3D11_USAGE_DEFAULT,
+            BindFlags: D3D11_BIND_SHADER_RESOURCE.0 as _,
+            CPUAccessFlags: Default::default(),
+            MiscFlags: Default::default(),
+        };
+
+        let init_pic = D3D11_SUBRESOURCE_DATA {
+            pSysMem: src.as_ptr() as _,
+            SysMemPitch: width * 4,
+            SysMemSlicePitch: 0,
+        };
+
+        let mut input_tex = None;
+        unsafe { device.CreateTexture2D(&desc, Some(&init_pic), Some(&mut input_tex)).unwrap() }
+        let input_tex = Texture::new(input_tex.unwrap());
+
+        desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        desc.BindFlags = D3D11_BIND_RENDER_TARGET.0 as _;
+
+        let mut output_tex = None;
+        unsafe { device.CreateTexture2D(&desc, None, Some(&mut output_tex)).unwrap() };
+        let output_tex = Texture::new(output_tex.unwrap());
+
+        let mut reader = TextureReader::new(device.clone(), ctx.clone());
+
+        let mut filter = ConvertHighBitToARGB8::new(&input_tex, &output_tex, &device).unwrap();
+
+        let mut out = Vec::new();
+        filter.apply_filter(&ctx).unwrap();
+        reader.get_data(&mut out, &output_tex).unwrap();
+
+        assert_eq!(out.len(), (width * height * 4) as usize);
+        assert_eq!(out[0], 255); // R
+        assert_eq!(out[1], 128); // G
+        assert_eq!(out[2], 0);   // B
+        assert_eq!(out[3], 255); // A (forced opaque)
+    }
+
+    #[test]
+    fn test_r16f_to_argb8() {
+        let (device, ctx) = build_device_and_ctx();
+
+        let width = 4u32;
+        let height = 4u32;
+
+        // R16G16B16A16_FLOAT (linear scRGB). f16 (IEEE 754 binary16) bit patterns, little-endian:
+        //   r=2.0 -> 0x4000, g=0.5 -> 0x3800, b=0.0 -> 0x0000, a=1.0 -> 0x3C00.
+        // Expect after saturate + sRGB OETF (alpha forced opaque):
+        //   R: 2.0 saturates to 1.0 -> sRGB 1.0 -> 255
+        //   G: sRGB(0.5) ~= 0.7354 -> ~188
+        //   B: 0.0 -> 0
+        //   A: forced -> 255
+        let px: [u8; 8] = [
+            0x00, 0x40, // R = 2.0
+            0x00, 0x38, // G = 0.5
+            0x00, 0x00, // B = 0.0
+            0x00, 0x3C, // A = 1.0
+        ];
+        let mut src: Vec<u8> = Vec::with_capacity((width * height * 8) as usize);
+        for _ in 0..(width * height) {
+            src.extend_from_slice(&px);
+        }
+
+        let mut desc = D3D11_TEXTURE2D_DESC {
+            Width: width,
+            Height: height,
+            MipLevels: 1,
+            ArraySize: 1,
+            Format: DXGI_FORMAT_R16G16B16A16_FLOAT,
+            SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
+            Usage: D3D11_USAGE_DEFAULT,
+            BindFlags: D3D11_BIND_SHADER_RESOURCE.0 as _,
+            CPUAccessFlags: Default::default(),
+            MiscFlags: Default::default(),
+        };
+
+        let init_pic = D3D11_SUBRESOURCE_DATA {
+            pSysMem: src.as_ptr() as _,
+            SysMemPitch: width * 8,
+            SysMemSlicePitch: 0,
+        };
+
+        let mut input_tex = None;
+        unsafe { device.CreateTexture2D(&desc, Some(&init_pic), Some(&mut input_tex)).unwrap() }
+        let input_tex = Texture::new(input_tex.unwrap());
+
+        desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        desc.BindFlags = D3D11_BIND_RENDER_TARGET.0 as _;
+
+        let mut output_tex = None;
+        unsafe { device.CreateTexture2D(&desc, None, Some(&mut output_tex)).unwrap() };
+        let output_tex = Texture::new(output_tex.unwrap());
+
+        let mut reader = TextureReader::new(device.clone(), ctx.clone());
+
+        let mut filter = ConvertHighBitToARGB8::new(&input_tex, &output_tex, &device).unwrap();
+
+        let mut out = Vec::new();
+        filter.apply_filter(&ctx).unwrap();
+        reader.get_data(&mut out, &output_tex).unwrap();
+
+        assert_eq!(out.len(), (width * height * 4) as usize);
+        assert_eq!(out[0], 255); // R
+        assert!((186..=190).contains(&out[1]), "G out of range: {}", out[1]); // G ~= 188
+        assert_eq!(out[2], 0);   // B
+        assert_eq!(out[3], 255); // A (forced opaque)
+    }
 }
 
 
@@ -206,6 +355,18 @@ generate_shader!(argb_to_y ps {
 
 generate_shader!(argb_to_uv ps {
     src_file: "src\\common_filters\\shaders\\argb_to_uv_ps.hlsl",
+    entry_point: "main",
+    target: "ps_5_0"
+});
+
+generate_shader!(r10_to_argb8 ps {
+    src_file: "src\\common_filters\\shaders\\r10_to_argb8_ps.hlsl",
+    entry_point: "main",
+    target: "ps_5_0"
+});
+
+generate_shader!(r16f_to_argb8 ps {
+    src_file: "src\\common_filters\\shaders\\r16f_to_argb8_ps.hlsl",
     entry_point: "main",
     target: "ps_5_0"
 });
@@ -647,6 +808,144 @@ impl DxFilter for ConvertARGBToYUV444 {
         ConvertARGBToYUV444::validate_output(tex)?;
         self._out_tex = tex.clone();
         self.rtv = create_rtv(&self.device, tex, tex.desc().format.into())?;
+        return Ok(());
+    }
+}
+
+
+/// Filter for converting high-bit-depth capture formats into 8-bit ARGB.
+///
+/// Accepts [ARGB10UNorm][ColorFormat::ARGB10UNorm] (R10G10B10A2_UNORM) and
+/// [ARGB16Float][ColorFormat::ARGB16Float] (R16G16B16A16_FLOAT) inputs and writes
+/// 8-bit [ARGB8UNorm][ColorFormat::ARGB8UNorm] / [ABGR8UNorm][ColorFormat::ABGR8UNorm].
+///
+/// `ARGB10UNorm` is already sRGB-encoded (display-referred) and is passed through
+/// verbatim (the 8-bit RTV truncates the 10-bit channels). `ARGB16Float` is linear
+/// scRGB (values may exceed 1.0 on HDR displays); it is saturated to `[0,1]` and the
+/// sRGB OETF is applied. Alpha is forced opaque in both paths.
+///
+/// The active pixel shader is selected from the input format at construction and on
+/// [`set_input_tex`][DxFilter::set_input_tex]. The filter also scales automatically
+/// based on the input and output texture dimensions.
+pub struct ConvertHighBitToARGB8 {
+    device: ID3D11Device4,
+    vs: VertexShader,
+
+    r10_ps: PixelShader,
+    r16f_ps: PixelShader,
+    /// true when the input is ARGB16Float (linear scRGB, needs OETF); false for ARGB10UNorm (passthrough).
+    is_r16f: bool,
+
+    _in_tex: Texture,
+    _out_tex: Texture,
+
+    srv: ID3D11ShaderResourceView,
+    rtv: ID3D11RenderTargetView,
+    sampler: ID3D11SamplerState,
+}
+
+impl ConvertHighBitToARGB8 {
+    /// create new instance of ConvertHighBitToARGB8 filter. After creation, filter takes a
+    /// high-bit-depth (ARGB10UNorm or ARGB16Float) input from `input_tex` and writes 8-bit
+    /// ARGB to `out_tex`.
+    pub fn new(input_tex: &Texture, out_tex: &Texture, device: &ID3D11Device4) -> Result<Self> {
+        Self::validate_input(input_tex)?;
+        Self::validate_output(out_tex)?;
+
+        let r10_ps = r10_to_argb8(device.clone())?;
+        let r16f_ps = r16f_to_argb8(device.clone())?;
+        let vs = simple_vs(device.clone())?;
+
+        let is_r16f = match input_tex.desc().format {
+            ColorFormat::ARGB16Float => true,
+            ColorFormat::ARGB10UNorm => false,
+            // validate_input already rejected other formats.
+            f => return Err(DxFilterErr::BadParam(format!("expected ARGB10UNorm or ARGB16Float, found {:?}", f))),
+        };
+
+        let srv = create_srv(device, input_tex, input_tex.desc().format.into())?;
+        let sampler = create_tex_sampler(device)?;
+        let rtv = create_rtv(device, out_tex, DXGI_FORMAT_R8G8B8A8_UNORM)?;
+
+        return Ok(Self {
+            device: device.clone(),
+            vs,
+            r10_ps,
+            r16f_ps,
+            is_r16f,
+            _in_tex: input_tex.clone(),
+            _out_tex: out_tex.clone(),
+            srv,
+            rtv,
+            sampler,
+        });
+    }
+
+    fn validate_input(tex: &Texture) -> Result<()> {
+        let desc = tex.desc();
+        match desc.format {
+            ColorFormat::ARGB10UNorm | ColorFormat::ARGB16Float => {
+                Ok(())
+            }
+            _ => {
+                Err(DxFilterErr::BadParam(format!("expected ARGB10UNorm or ARGB16Float, found {:?}", desc.format)))
+            }
+        }
+    }
+    fn validate_output(tex: &Texture) -> Result<()> {
+        let desc = tex.desc();
+        match desc.format {
+            ColorFormat::ARGB8UNorm | ColorFormat::ABGR8UNorm => {
+                Ok(())
+            }
+            _ => {
+                Err(DxFilterErr::BadParam(format!("expected ARGB8UNorm or ABGR8UNorm, found {:?}", desc.format)))
+            }
+        }
+    }
+}
+
+impl DxFilter for ConvertHighBitToARGB8 {
+    fn apply_filter(&self, ctx: &ID3D11DeviceContext4) -> Result<()> {
+        let out_desc = self._out_tex.desc();
+        let vp = D3D11_VIEWPORT {
+            TopLeftX: 0.0,
+            TopLeftY: 0.0,
+            Width: out_desc.width as _,
+            Height: out_desc.height as _,
+            MinDepth: 0.0,
+            MaxDepth: 0.0,
+        };
+        let ps = if self.is_r16f { &self.r16f_ps } else { &self.r10_ps };
+        unsafe {
+            ctx.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+            ctx.VSSetShader(self.vs.as_raw_ref(), Some(&[]));
+            ctx.PSSetShader(ps.as_raw_ref(), Some(&[]));
+            ctx.PSSetSamplers(0, Some(&[Some(self.sampler.clone())]));
+            ctx.PSSetShaderResources(0, Some(&[Some(self.srv.clone())]));
+            ctx.RSSetViewports(Some(&[vp]));
+            ctx.OMSetRenderTargets(Some(&[Some(self.rtv.clone())]), None);
+            ctx.Draw(4, 0);
+        }
+        return Ok(());
+    }
+
+    fn set_input_tex(&mut self, tex: &Texture) -> Result<()> {
+        ConvertHighBitToARGB8::validate_input(tex)?;
+        self.is_r16f = match tex.desc().format {
+            ColorFormat::ARGB16Float => true,
+            ColorFormat::ARGB10UNorm => false,
+            f => return Err(DxFilterErr::BadParam(format!("expected ARGB10UNorm or ARGB16Float, found {:?}", f))),
+        };
+        self._in_tex = tex.clone();
+        self.srv = create_srv(&self.device, tex, tex.desc().format.into())?;
+        return Ok(());
+    }
+
+    fn set_output_tex(&mut self, tex: &Texture) -> Result<()> {
+        ConvertHighBitToARGB8::validate_output(tex)?;
+        self._out_tex = tex.clone();
+        self.rtv = create_rtv(&self.device, tex, DXGI_FORMAT_R8G8B8A8_UNORM)?;
         return Ok(());
     }
 }

@@ -134,6 +134,7 @@ name = "win_desktop_duplication"
 version = "0.10.11"
 dependencies = [
  "log",
+ "shader_macro 0.5.0",
  "tokio",
  "tokio-stream",
  "windows",
